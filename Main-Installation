@@ -243,12 +243,6 @@ Now that you are using the HTPasswdPasswordIdentityProvider provider, you need t
 
     $yum install jq -y
 
-  b. Take heketi admin secret
-
-    oc get secret heketi-storage-admin-secret --namespace app-storage -o json | jq -r .data.key | base64 -d
-
-   Save this in some filein
-
 13. GlusterFS file system Installation
 
 
@@ -328,7 +322,13 @@ node4.test-openshift.com glusterfs_devices='[ "/dev/xvdb" ]'
 
 16. Internal Registry with gluster FS
 
-   vi inventory.ini
+   Fist Take heketi admin secret
+
+    oc get secret heketi-storage-admin-secret --namespace app-storage -o json | jq -r .data.key | base64 -d
+
+   Save this in some file the output
+
+vi inventory.ini
 
 [OSEv3:children]
 masters
