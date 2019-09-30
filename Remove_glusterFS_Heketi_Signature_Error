@@ -1,0 +1,72 @@
+[root@oskm2 ~]# updatedb
+[root@oskm2 ~]# locate heketidbstorage
+/var/lib/glusterd/vols/heketidbstorage
+/var/lib/glusterd/vols/heketidbstorage/bricks
+/var/lib/glusterd/vols/heketidbstorage/cksum
+/var/lib/glusterd/vols/heketidbstorage/heketidbstorage.192.168.0.168.var-lib-heketi-mounts-vg_99cf5b2bc5b0472142cf178d154a0d64-brick_d748cef5897c7037cd401eb67e8d1fec-brick.vol
+/var/lib/glusterd/vols/heketidbstorage/heketidbstorage.192.168.0.221.var-lib-heketi-mounts-vg_bed5be1eed46543a18458e2c1be8da23-brick_6ecdbf0917b646dce11b782365934485-brick.vol
+/var/lib/glusterd/vols/heketidbstorage/heketidbstorage.192.168.0.252.var-lib-heketi-mounts-vg_a469d2748d32171aad377bfc91a72809-brick_2a4f61e3103aa038ac0fd867d0ac0837-brick.vol
+/var/lib/glusterd/vols/heketidbstorage/heketidbstorage.gfproxyd.vol
+/var/lib/glusterd/vols/heketidbstorage/heketidbstorage.tcp-fuse.vol
+/var/lib/glusterd/vols/heketidbstorage/info
+/var/lib/glusterd/vols/heketidbstorage/node_state.info
+/var/lib/glusterd/vols/heketidbstorage/quota.cksum
+/var/lib/glusterd/vols/heketidbstorage/quota.conf
+/var/lib/glusterd/vols/heketidbstorage/snapd.info
+/var/lib/glusterd/vols/heketidbstorage/trusted-heketidbstorage.tcp-fuse.vol
+/var/lib/glusterd/vols/heketidbstorage/trusted-heketidbstorage.tcp-gfproxy-fuse.vol
+/var/lib/glusterd/vols/heketidbstorage/bricks/192.168.0.168:-var-lib-heketi-mounts-vg_99cf5b2bc5b0472142cf178d154a0d64-brick_d748cef5897c7037cd401eb67e8d1fec-brick
+/var/lib/glusterd/vols/heketidbstorage/bricks/192.168.0.221:-var-lib-heketi-mounts-vg_bed5be1eed46543a18458e2c1be8da23-brick_6ecdbf0917b646dce11b782365934485-brick
+/var/lib/glusterd/vols/heketidbstorage/bricks/192.168.0.252:-var-lib-heketi-mounts-vg_a469d2748d32171aad377bfc91a72809-brick_2a4f61e3103aa038ac0fd867d0ac0837-brick
+/var/lib/origin/openshift.local.volumes/pods/77c7c0bd-3323-11e8-98d2-000c29a9f359/volumes/kubernetes.io~empty-dir/glusterfs-run/gluster/vols/heketidbstorage
+/var/log/glusterfs/snaps/heketidbstorage
+[root@oskm2 ~]#
+[root@oskm2 ~]# rm -rf /var/lib/glusterd
+[root@oskm2 ~]# updatedb
+[root@oskm2 ~]#
+[root@oskm2 ~]#
+[root@oskm2 ~]# locate heketidbstorage
+/var/log/glusterfs/snaps/heketidbstorage
+[root@oskm2 ~]#
+[root@oskm2 ~]# rm -rf /var/log/glusterfs/snaps/heketidbstorage
+[root@oskm2 ~]#
+
+
+[root@oskm2 ~]# pvdisplay
+  --- Physical volume ---
+  PV Name               /dev/sdc
+  VG Name               vg_720e5046780e373e1e1a8e6d4a786a5b
+  PV Size               1.00 TiB / not usable 132.00 MiB
+  Allocatable           yes
+  PE Size               4.00 MiB
+  Total PE              262111
+  Free PE               262111
+  Allocated PE          0
+  PV UUID               MLF37l-hbKX-nlh1-Qp3i-QPeh-BnPx-EKKvPj
+
+  --- Physical volume ---
+  PV Name               /dev/sdb1
+  VG Name               docker-vg
+  PV Size               <100.00 GiB / not usable 3.00 MiB
+  Allocatable           yes
+  PE Size               4.00 MiB
+  Total PE              25599
+  Free PE               15360
+  Allocated PE          10239
+  PV UUID               QDr3ht-BLvf-peRY-jM37-Vt71-PjMX-4Xbxrn
+
+  --- Physical volume ---
+  PV Name               /dev/sda2
+  VG Name               cl
+  PV Size               <99.00 GiB / not usable 3.00 MiB
+  Allocatable           yes
+  PE Size               4.00 MiB
+  Total PE              25343
+  Free PE               1
+  Allocated PE          25342
+  PV UUID               nYaXma-7zFb-MHs8-Mcjx-D2lI-ehxg-iswAd6
+
+[root@oskm2 ~]# vgremove vg_720e5046780e373e1e1a8e6d4a786a5b
+  Volume group "vg_720e5046780e373e1e1a8e6d4a786a5b" successfully removed
+[root@oskm2 ~]# pvremove /dev/sdc
+  Labels on physical volume "/dev/sdc" successfully wiped.

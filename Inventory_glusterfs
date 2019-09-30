@@ -1,0 +1,54 @@
+[OSEv3:children]
+masters
+nodes
+etcd
+glusterfs
+
+[masters]
+master.test-openshift.com
+
+[etcd]
+master.test-openshift.com
+
+[nodes]
+master.test-openshift.com openshift_node_group_name='node-config-master'
+infra.test-openshift.com openshift_node_group_name='node-config-infra'
+node1.test-openshift.com openshift_node_group_name='node-config-compute'
+node2.test-openshift.com openshift_node_group_name='node-config-compute'
+node3.test-openshift.com openshift_node_group_name='node-config-compute'
+node4.test-openshift.com openshift_node_group_name='node-config-compute'
+
+
+[OSEv3:vars]
+debug_level=4
+ansible_ssh_user=root
+openshift_enable_service_catalog=true
+openshift_disable_check=disk_availability,docker_storage,memory_availability,docker_image_availability
+
+openshift_master_dynamic_provisioning_enabled=True
+
+
+openshift_master_identity_providers=[{'name': 'htpasswd_auth', 'login': 'true', 'challenge': 'true', 'kind': 'HTPasswdPasswordIdentityProvider'}]
+
+openshift_deployment_type=origin
+openshift_master_default_subdomain=apps.test-openshift.com
+
+openshift_master_cluster_hostname=master.test-openshift.com
+openshift_master_cluster_public_hostname=master.test-openshift.com
+
+# default selectors for router and registry services
+openshift_router_selector='node-role.kubernetes.io/infra=true'
+openshift_registry_selector='node-role.kubernetes.io/infra=true'
+
+openshift_storage_glusterfs_namespace=app-storage
+openshift_storage_glusterfs_storageclass=true
+openshift_storage_glusterfs_storageclass_default=false
+openshift_storage_glusterfs_block_deploy=true
+openshift_storage_glusterfs_block_host_vol_size=100
+openshift_storage_glusterfs_block_storageclass=true
+openshift_storage_glusterfs_block_storageclass_default=false
+
+[glusterfs]
+node2.test-openshift.com glusterfs_devices='[ "/dev/xvdb" ]'
+node3.test-openshift.com glusterfs_devices='[ "/dev/xvdb" ]'
+node4.test-openshift.com glusterfs_devices='[ "/dev/xvdb" ]'

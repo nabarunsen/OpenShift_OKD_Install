@@ -1,0 +1,42 @@
+NFS problem: clnt_create: RPC: Port mapper failure – Unable to receive: errno 113 (No route to host)
+Sa Posted on 2018-11-19 Category: Uncategorized Read (1279) Comments (0)
+Summary: NFS problem: both nfs and rpcbind are started normally, and the shared directory /tmp has been released.
+
+When viewing on the client side, the following error message appears:
+
+[aliyunzixun@xxx.com~]# showmounte192.168.122.10
+Clnt_create:RPC:Portmapperfailure-Unabletoreceive:errno113(Noroutetohost)
+Solution: Close the firewall and selinux on the accessed NFS server (of course only for personal test environments), execute systemctlstopfire
+
+NFS problem:
+
+Both nfs and rpcbind are started normally, and the shared directory /tmp has been released.
+
+When viewing on the client side, the following error message appears:
+
+[aliyunzixun@xxx.com ~]# showmount -e 192.168.122.10
+Clnt_create: RPC: Port mapper failure - Unable to receive: errno 113 (No route to host)
+Solution:
+
+Close the firewall and selinux on the accessed NFS server (of course only for personal test environments)
+
+carried out
+
+systemctl stop firewalld
+iptables -F
+setenforce 0
+Revisit showmount -e 192.168.122.10 on the client side
+
+showmount -e 192.168.122.10 on the client side
+
+I get the following error message "clnt_create: RPC: Program not registered"
+
+Solution:
+
+Server [aliyunzixun@xxx.com /]# rpc.mountd
+
+Client view
+
+[aliyunzixun@xxx.com ~]# showmount -e 192.168.122.10
+
+Export list for server.example.com:/tmp *(rw,sync,no_root_squash)

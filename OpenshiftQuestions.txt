@@ -1,0 +1,708 @@
+#####################################################################################################################################################################################
+
+1. Configure htpassword base user and restrict project creation
+
+[root@workstation ~]# oc login -u admin -p redhat https://master.lab.example.com:8443
+[root@workstation ~]# oc whoami
+[root@workstation ~]# oc adm policy remove-cluster-role-from-group self-provisioner system:authenticated system:authenticated:oauth
+[root@workstation ~]# htpasswd -b /etc/origin/openshift-passwd harry redhat
+[root@workstation ~]# htpasswd -b /etc/origin/openshift-passwd natasha redhat
+[root@workstation ~]# oc login -u harry -p redhat https://master.lab.example.com:8443
+[root@workstation ~]# oc new-project sample-project
+[root@workstation ~]# oc login -u natasha -p redhat https://master.lab.example.com:8443
+[root@workstation ~]# oc new-project sample-project
+[root@workstation ~]# oc logout
+
+Note : User should not be able to create project
+
+#####################################################################################################################################################################################
+
+2. On your OpenShift Enterprise instance create the following projects:
+   shark
+   tokyo
+   farm
+   
+*Additionally,Configure the projects as follows:
+   *For all of the projects, set the description to 'This is an EX280 project on OpenShift v3'
+   *Make randy the admin of project shark
+   *The user ryan must be able to view the project shark but not administer or delete it.
+   *Make ryan the admin of projects farm and tokyo.
+
+
+[root@workstation ~]# oc login -u admin -p redhat https://master.lab.example.com:8443
+[root@workstation ~]# htpasswd -b /etc/origin/openshift-passwd randy boaterch
+[root@workstation ~]# htpasswd -b /etc/origin/openshift-passwd ryan boaterch
+[root@workstation ~]# oc new-project shark --description="This is an EX280 project on OpenShift v3"
+[root@workstation ~]# oc project shark
+[root@workstation ~]# oadm policy add-role-to-user admin randy
+[root@workstation ~]# oadm policy add-role-to-user view ryan
+[root@workstation ~]# oc login -u system:admin https://master.lab.example.com:8443
+[root@workstation ~]# oc new-project farm --description="This is an EX280 project on OpenShift v3" 
+[root@workstation ~]# oc new-project tokyo --description="This is an EX280 project on OpenShift v3" 
+[root@workstation ~]# oc project farm 
+[root@workstation ~]# oc adm policy add-role-to-user admin ryan
+[root@workstation ~]# oc project tokyo
+[root@workstation ~]# oc adm policy add-role-to-user admin ryan
+
+#####################################################################################################################################################################################
+
+3.Configure persistent storage
+Configure persistent NFS storage on workstation.lab.example.com in the following way:
+
+   *Applay all latest updates on workstation.lab.example.com
+   
+   Create and share /OSE_mysql
+   
+   Create and share /OSE_wordpress
+   
+   Create and share /OSE_registry
+   
+   All the shares must be available to anyone in the subnet 172.25.250.0/255.255.255.0
+   
+   Assocate the share named /OSE_registry to the registry running within your OpenShift Enterprice so that it will be used, 
+   
+   instead of the default one,for permament storage.Use exam-registry-volume for the volume name and exam-registry-claim for the claim name.
+
+##########################################################################
+
+## on master
+[root@master ~]# oc login -u admin -p redhat https://master.lab.example.com:8443
+[root@master ~]# oc project default
+
+[root@master ~]# oc get pods
+
+NAME                       READY     STATUS    RESTARTS   AGE
+docker-registry-1-6gr55    1/1       Running   1          4d
+registry-console-1-jllcb   1/1       Running   1          4d
+router-1-kgkcg             1/1       Running   1          4d
+
+[root@master ~]# oc describe pod docker-registry-1-6gr55 | grep -A 2 'Volumes'
+
+Volumes:
+  registry-storage:
+    Type:    EmptyDir (a temporary directory that shares a pod's lifetime)
+
+
+[root@master ~]# oc set volume pod docker-registry-1-6gr55
+
+pods/docker-registry-1-6gr55
+  empty directory as registry-storage		## see here, it's an empty directory as registry storage ##
+    mounted at /registry
+  secret/registry-certificates as registry-certificates
+    mounted at /etc/secrets
+  secret/registry-token-8hjkp as registry-token-8hjkp
+    mounted at /var/run/secrets/kubernetes.io/serviceaccount	
+
+
+## on workstation 
+[root@workstation ~]# yum -y update
+
+[root@workstation ~]# mkdir /{OSE_mysql,OSE_wordpress,OSE_registry}
+[root@workstation ~]# chmod 777 /{OSE_mysql,OSE_wordpress,OSE_registry}
+[root@workstation ~]# chown nfsnobody:nfsnobody /{OSE_mysql,OSE_wordpress,OSE_registry}
+
+[root@workstation ~]# yum install nfs-utils rpcbind
+
+[root@workstation ~]# cat >> /etc/exports << EOF
+/OSE_mysql 172.25.250.0/24(rw,all_squash,async)
+/OSE_wordpress 172.25.250.0/24(rw,all_squash,async)
+/OSE_registry 172.25.250.0/24(rw,all_squash,async)
+EOF
+
+[root@workstation ~]# systemctl restart nfs-server 
+[root@workstation ~]# systemctl enable nfs-server
+[root@workstation ~]# sowmount -e
+Export list for workstation.lab.example.com:
+/OSE_mysql 172.25.250.0/24
+/OSE_wordpress 172.25.250.0/24
+/OSE_registry 172.25.250.0/24
+
+[root@master ~]# showmount -e workstation.lab.example.com
+Export list for workstation.lab.example.com:
+/OSE_mysql 172.25.250.0/24
+/OSE_wordpress 172.25.250.0/24
+/OSE_registry 172.25.250.0/24
+
+[root@node1 ~]# showmount -e workstation.lab.example.com
+Export list for workstation.lab.example.com:
+/OSE_mysql 172.25.250.0/24
+/OSE_wordpress 172.25.250.0/24
+/OSE_registry 172.25.250.0/24
+
+[root@node2 ~]# showmount -e workstation.lab.example.com
+Export list for workstation.lab.example.com:
+/OSE_mysql 172.25.250.0/24
+/OSE_wordpress 172.25.250.0/24
+/OSE_registry 172.25.250.0/24
+
+
+[root@master ~]# oc get dc
+
+NAME               REVISION   DESIRED   CURRENT   TRIGGERED BY
+docker-registry    1          1         1         config
+registry-console   1          1         1         config
+router             1          1         1         config
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+If this two files work then fine other wise please create single yml file
+
+[root@workstation ~]# vi OSE_registry-volume.yml
+
+apiVersion: v1
+kind: PersistentVolume
+metadata: 
+ name: "exam-registry-volume"
+ labels: 
+  deploymentconfig: "docker-registry"
+spec: 
+ capacity: 
+  storage: 2Gi
+ accessModes: 
+  - 
+   ReadWriteMany
+ nfs: 
+  path: "/OSE_registry"
+  server: "workstation.lab.example.com"
+  
+:wq
+
+
+[root@workstation ~]# oc create -f OSE_registry-volume.yml 
+
+[root@workstation ~]# oc get pv
+
+
+[root@workstation ~]# vi OSE_registry-pvclaim.yml
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: 
+ name: "exam-registry-claim"
+ labels: 
+  deploymentconfig: "docker-registry"
+spec: 
+ accessModes: 
+  - 
+   ReadWriteOnce
+ resources: 
+  requests: 
+   storage: 2Gi
+   
+:wq
+
+[root@workstation ~]# oc create -f OSE_registry-pvclaim.yml
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+[root@master ~]# vi registry-volume.yaml
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: exam-registry-volume
+spec:
+  capacity:
+    storage: 5Gi
+  accessModes:
+  - ReadWriteMany
+  nfs:
+    path: /OSE_registry
+    server: nfs.openshift.example.com
+  persistentVolumeReclaimPolicy: Recycle
+  claimRef:
+    name: exam-registry-claim
+    namespace: default
+:wq
+
+[root@master ~]# oc create -f registry-volume.yaml
+[root@workstation ~]# oc get pvc
+[root@workstation ~]# oc set volume dc docker-registry --add --overwrite --name=registry-storage -t pvc --claim-name=exam-registry-claim --claim-size=2Gi --claim-mode=ReadWriteOnce
+[root@workstation ~]# oc describe dc docker-registry
+
+[root@master ~]# oc get pv
+NAME              CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS    CLAIM                      STORAGECLASS   REASON    AGE
+registry-volume   5Gi        RWX            Recycle          Bound     default/registry-pvclaim                            2m
+
+[root@master ~]# oc get pods
+NAME                       READY     STATUS    RESTARTS   AGE
+docker-registry-2-cw6s9    1/1       Running   0          1m			# Compare docker-registry Pod ID with previous pod list 
+registry-console-1-nlrf8   1/1       Running   0          31m
+router-1-f8m7j             1/1       Running   0          31m
+
+
+[root@master ~]# oc describe pod docker-registry-2-cw6s9
+
+
+[root@master ~]# oc set volume pod docker-registry-2-cw6s9
+
+pods/docker-registry-2-cw6s9
+  secret/registry-certificates as registry-certificates
+    mounted at /etc/secrets
+  pvc/registry-pvclaim (allocated 5GiB) as registry-storage
+    mounted at /registry
+  secret/registry-token-8hjkp as registry-token-8hjkp
+    mounted at /var/run/secrets/kubernetes.io/serviceaccount
+
+
+#########################################################################################################################################################################################
+4. Create an application from a Git repository , Use the S2I functionality of your Openshift instance to build an application in the tokyo project. 
+Use the Git repository at http://workstation.lab.example.com/php-helloworld for the application source .
+Use the Docker image labeled workstation.lab.example.com:5000/openshift3/php-55-rhel7(if you are using the WebGUI just add the available 2.0 Ready Image)
+
+Once deployed the application must be reachable(and browse-able)at the following address:http://mordor.tokyo.cloudapp.lab.example.com .
+Update the original repository so that the app.rb file contains the text from http://rhgls.lab9.example.com/materials/morfor.txt instead of the word PLACEHOLDER
+Trigger a rebuild so that when browsing http://monfor.tokyou.cloudapp.example.com it will display the new text
+
+##########################################################################
+## on master , use git: http://workstation.lab.example.com/php-helloworld ; use image : workstation.lab.example.com:5000/openshift3/php-55-rhel7
+
+[root@master ~]# oc login -u admin -p redhat https://master.lab.example.com:8443
+[root@master ~]# oc project tokyo
+[root@master ~]# oc -o json new-app workstation.lab.example.com:5000/openshift3/php-55-rhel7~http://workstation.lab.example.com/php-helloworld --name=gits2i > git-s2i.json
+[root@master ~]# oc create -f git-s2i.json
+[root@master ~]# oc get pods 
+[root@master ~]# wget http://rhgls.lab9.example.com/materials/morfor.txt
+[root@master ~]# cat morfor.txt
+
+Hi RedHat OpenShift Container Platform
+
+#oc expose service php-helloworld --hostname http://mordor.tokyo.cloudapps.lab.example.com
+
+[root@master ~]# oc expose service gits2i --name=gits2iroute --hostname=gits2i.cloudapps.lab.example.com --port=80
+[root@master ~]# git clone http://workstation.lab.example.com/php-helloworld
+[root@master ~]# cd php-helloworld
+[root@master ~]# vim index.php
+
+instead of the word PLACEHOLDER ( Hi RedHat OpenShift Container Platform)  put the output of morfor.txt
+
+:wq
+
+[root@master ~]# git add index.php
+[root@master ~]# git commit -m "change"
+[root@master ~]# git push
+[root@master ~]# oc get route
+[root@master ~]# oc start-build gits2i
+[root@master ~]# curl gits2i.cloudapps.lab.example.com
+
+#########################################################################################################################################################################################
+
+5.Configure OpenShift quotas for a project. Configure quotas and limits for project shark so that:
+   
+   The ResourceQuota resouce is named ex280-quota
+   
+   The amount of memory consumed across all containers may not exceed 1Gi
+   
+   The Total amount of CPU usage consumed across all containers may not exceed 2 Kubernetes compute untis.
+   
+   The maximum number of replication controllers does not exceed 3
+   
+   The maximum number of services of pods does not exceed 12
+   
+   The maximum number of services does not exceed 6
+   
+   The LimitRange resource is named ex280-limits
+   
+   The amount of memory consumed by a single pod is between 5Mi and 300Mi
+   
+   The amount of cpu consumed by a single pod is between 10m and 500m
+   
+   The amount of cpu consumed by a single container is between 10m and 500m with a default request value of 100m
+
+Answer 
+
+##########################################################################
+## on master
+[root@master ~]# oc login -u admin -p redhat https://master.lab.example.com:8443
+[root@master ~]# oc project shark 
+
+[root@master ~]# vi resource.yml
+
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: ex280-quota
+spec:
+  hard:
+    memory: 1Gi
+    cpu: '2'
+    replicationcontrollers: '3'
+    pods: '12'
+    services: '6'
+	
+:wq
+ 
+	
+[root@master ~]# oc create -f resource.yml -n shark	
+[root@master ~]# oc get quota
+[root@master ~]# oc describe quota ex280-quota
+
+[root@master ~]# vi limit.yml
+
+kind: LimitRange
+apiVersion: v1
+metadata:
+  name: ex280-limits
+  creationTimestamp: 
+spec:
+  limits:
+  - type: Pod
+    max:
+      cpu: 500m
+      memory: 300Mi
+    min:
+      cpu: 10m
+      memory: 5Mi
+  - type: Container
+    max:
+      cpu: 500m
+    min:
+      cpu: 10m
+    default:
+      cpu: 100m
+
+:wq
+ 
+[root@master ~]# oc create -f limit.yml -n shark	 
+[root@master ~]# oc get limitrange
+[root@master ~]# oc describe limitrange ex280-limits
+
+#########################################################################################################################################################################################
+6. Scale the application for project tokyo
+
+[root@master ~]# oc login -u admin -p redhat https://master.lab.example.com:8443
+[root@master ~]# oc project tokyo
+[root@master ~]# oc get svc
+[root@master ~]# oc get pods -o wide
+[root@master ~]# oc scale --replicas=5 dc gits2i
+[root@master ~]# oc get pods 
+
+Note : Number of pods should be increased to 5 and all pods should be up and running
+
+#########################################################################################################################################################################################
+
+7.Secure Route Configuration
+
+[root@master ~]# oc login -u admin -p redhat https://master.lab.example.com:8443
+[root@master ~]# oc project tokyo
+[root@master ~]# oc new-app --name=hello --docker-image=http://workstation.lab.example.com:5000/phpadmin
+ or
+[root@master ~]# oc new-app -i php:7.0 --name=hello http://workstation:/php-helloworld
+[root@master ~]# oc get pods
+[root@master ~]# wget http://< URL provided in the exam to download create-cert.sh file>>
+[root@master ~]# scp -p create-cert.sh root@master:/root
+
+[root@master ~]# sh create-cert.sh
+[root@master ~]# ls -lrt *.key *.cert
+[root@master ~]# oc create route edge --service=hello --hostname=hello.cloudapps.lab.example.com --cert=hello.cloudapps.lab.example.com.crt ==key=hello.cloudapps.lab.example.com.key <--ca-cert=<If any ca cert provided>>
+
+Now open firefox in workstation and hit https://hello.cloudapps.lab.example.com
+
+
+
+#########################################################################################################################################################################################
+8. Configure Metrics in Openshift
+
+Reference : https://github.com/nabarunsen/openshiftv3-ops-workshop.git
+
+
+[root@master ~]# oc login -u admin -p redhat https://master.lab.example.com:8443
+[root@master ~]# oc project openshift-infra
+
+[root@master ~]# vi metrics-pv.yml
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+ name: metrics
+spec:
+ capacity:
+  storage: 5Gi
+ accessModes:
+ - ReadWriteOnce
+ nfs:
+  path: /export/metrics
+  server: workstation.lab.example.com
+ persistentVolumeReclaimPolicy: Recycle
+ claimRef:
+  name: metrics-1
+  namespace: openshift-infra
+  
+:wq
+
+[root@master ~]# oc create -f metrics-pv.yml
+
+[root@master ~]# ls -l hosts
+[root@master ~]# ls -lrt /usr/share/ansible/openshift-ansible/playbooks/byo/openshift-cluster/openshift-metrics.yml
+ansible-playbook -i ~/hosts /usr/share/ansible/openshift-ansible/playbooks/byo/openshift-cluster/openshift-metrics \
+-e openshift_metrics_image_prefix=workstation.lab.example.com:5000/openshift3/ose- \
+-e openshift_metrics_image-version=v3.5 \
+-e openshift_metrics_heapster_requests_memory=300M \
+-e openshift_metrics_hawkular_requests_memory=750M \
+-e openshift_metrics_cassandra_requests_memory=750M \
+-e openshift_metrics_cassandra_storage_type=pv
+-e openshift_metrics_cassandra_pvc_size=5Gi \
+-e openshift_metrics_cassandra_pvc_prefix=metrics \
+-e openshift_metrics_install_metrics=True
+
+[root@master ~]# oc get pods -n openshift-infra
+
+[root@master ~]# oc get pvc -n openshift-infra 
+
+There is a known issue where you'll have two pvc's show up. Overwrite the the rc with the right value.
+
+[root@master ~]# oc volume rc/hawkular-cassandra-1 --add --overwrite --name=cassandra-data -t pvc --claim-name=metrics-1
+
+And delete the other pvc
+
+[root@master ~]# $ oc delete pvc metrics-cassandra-1
+persistentvolumeclaim "metrics-cassandra-1" deleted
+
+
+#########################################################################################################################################################################################
+
+9.Create an application using docker images and definition files(Create an application using pods)
+
+   Using the example files from the wordpress directory under http://rhgls.lab9.example.com/materials/openshift/origin/examples 
+   
+   create a Wordpress application in the farm project.
+   
+   Set the OpenShift security context clearance by running the file in /root/wordprecc_prep.sh on master.lab9.example.com(Note:this is necessary to allow WordPress to bind to port 80)
+   
+   For persistent storage use the the NFS shares /OSE_mysql and /OSE_wordpress from workstation.lab.example.com
+   
+   For the WordPress pod use the Docker image from http://rhgls.lab9.example.com/ex280/wordpress.tar(Note:It is normal if the wordpress pod initially restarts a couple of times due to permission issues)
+   
+   For the MySQL pod use the Docker image openshift3/mysql-55-rhel7
+   
+   Once deployed the application must be reachable at the following address:http://wordpress.farm.cloudapps.lab.example.com
+   
+   Finally complete the WordPress installation by setting ryan as the admin user with password boaterch and root@master.lab.example.com for the email address.
+   
+   Set the blog name to EX280 Blog
+   
+   Create your first post with title:Carpe dlem.quam minimum credula postero.The text in the post does not matter.
+
+   
+Sample Project :
+
+1.https://github.com/OpenRiskNet/home/tree/master/openshift/recipes/wordpress-mysql-example  
+2.https://techbloc.net/archives/2607
+
+Answer :
+
+
+#on master import image:
+[root@master ~]# oc login -u admin -p redhat https://master.lab.example.com:8443
+
+[root@master ~]# oc project farm
+
+[root@master ~]# wget http://rhgls.lab9.example.com/ex280/wordpress.tar  #we should use online docker to save a image like: docker save wordpress &gt; wordpress.tar
+
+[root@master ~]# docker load -i wordpress.tar
+
+[root@master ~]# docker tag docker.io/wordpress workstation.lab.example.com:5000/openshift3/wordpress
+
+[root@master ~]# docker push workstation.lab.example.com:5000/openshift3/wordpress
+
+[root@master ~]# /root/wordprecc_prep.sh,is like:
+
+#oc patch scc restricted -p '{"runAsUser":{"type":"RunAsAny"}}'
+
+[root@master ~]# oc patch node master.lab.example.com node.lab.example.com -p '{"runAsUser":{"type":"RanAsAny"}}'
+
+#on master :template,https://github.com/openshift/origin/blob/master/examples/privileged-pod-pvc/
+
+[root@master ~]# cat >> mysql-volume.yaml << EOF
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: mysql-volume
+spec:
+  capacity:
+    storage: 2Gi
+  accessModes:
+    - ReadWriteMany
+  nfs:
+    path: /OSE_mysql
+    server: workstation.lab.example.com
+  persistentVolumeReclaimPolicy: Recycle
+EOF
+
+:wq
+
+[root@master ~]# cat >> mysql-pvclaim.yaml << EOF
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: mysql-pvclaim
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 2Gi
+EOF
+
+[root@master ~]# oc create -f mysql-volume.yaml
+[root@master ~]# oc create -f mysql-pvclaim.yaml
+
+#create pod mysql and webserver
+
+[root@master ~]# cat >> mysql-pod.yaml << EOF
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mysql
+  labels:
+    name: mysql
+spec:
+  containers:
+    - resources:
+        limits :
+          cpu: 0.5
+      image: openshift/mysql-55-centos7
+      name: mysql
+      env:
+        - name: MYSQL_ROOT_PASSWORD
+          value: yourpassword
+        - name: MYSQL_USER
+          value: wp_user
+        - name: MYSQL_PASSWORD
+          value: wp_pass
+        - name: MYSQL_DATABASE
+          value: wp_db
+      ports:
+        - containerPort: 3306
+          name: mysql
+      volumeMounts:
+        - name: mysql-persistent-storage
+          mountPath: /var/lib/mysql/data
+  volumes:
+    - name: mysql-persistent-storage
+      persistentVolumeClaim:
+        claimName: mysql-pvclaim 
+EOF
+
+
+[root@master ~]# oc create -f mysql-pod.yaml
+
+[root@master ~]# cat >> mysql-service.yaml << EOF
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    name: mysql
+  name: mysql
+spec:
+  ports:
+    - port: 3306
+  selector:
+    name: mysql
+EOF
+
+[root@master ~]# oc create -f mysql-service.yaml
+
+[root@master ~]# cat >> wordpress-volume.yaml << EOF
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: wp-volume
+spec:
+  capacity:
+    storage: 2Gi
+  accessModes:
+    - ReadWriteMany
+  nfs:
+    path: /OSE_wordpress
+    server: workstation.lab.example.com
+  persistentVolumeReclaimPolicy: Recycle
+EOF
+
+[root@master ~]# cat >> wordpress-pvclaim.yaml << EOF
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: wp-pvclaim
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 2Gi
+EOF
+
+
+[root@master ~]# oc create -f wordpress-pvclaim.yaml
+
+[root@master ~]# cat >> wordpress-pod.yaml << EOF
+apiVersion: v1
+kind: Pod
+metadata:
+  name: wordpress
+  labels:
+    name: wordpress
+spec:
+  containers:
+    - image: wordpress
+      name: wordpress
+      env:
+        - name: WORDPRESS_DB_USER
+          value: wp_user
+        - name: WORDPRESS_DB_PASSWORD
+          value: wp_pass
+        - name: WORDPRESS_DB_NAME
+          value: wp_db
+        - name: WORDPRESS_DB_HOST
+          value: mysql
+      ports:
+        - containerPort: 80
+          name: wordpress
+      volumeMounts:
+        - name: wordpress-persistent-storage
+          mountPath: /var/www/html
+  volumes:
+    - name: wordpress-persistent-storage
+      persistentVolumeClaim:
+       claimName: wp-pvclaim 
+EOF
+
+
+[root@master ~]# oc adm policy add-scc-to-user anyuid -z default
+[root@master ~]# oc patch node master.openshift.example.com node2.openshift.example.com -p '{"runAsUser":{"type":"RanAsAny"}}'
+[root@master ~]# oc create -f wordpress-pod.yaml
+
+cat >> wordpress-service.yaml << EOF
+apiVersion: v1
+kind: Service
+metadata: 
+  labels: 
+    name: wpfrontend
+  name: wpfrontend
+spec: 
+  ports:
+    - port: 80 
+      targetPort: wordpress 
+  selector: 
+    name: wordpress
+  type: LoadBalancer
+EOF
+
+[root@master ~]# oc create -f mysql-service.yaml
+[root@master ~]# oc create -f wordpress-service.yaml
+
+[root@master ~]# oc expose service wpfrontend --name=wordpressroute --hostname=wordpress.farm.cloudapps.lab.example.com --port=80
+[root@master ~]# curl wordpress.farm.cloudapps.lab.example.com
+
+##########################################################################
+
+Openshift wordpress and postgres sql
+
+https://vocon-it.com/2018/11/05/installing-wordpress-via-openshift/
+
+
+##########################################################################
+
+
+https://github.com/jbossdemocentral/coolstore-microservice

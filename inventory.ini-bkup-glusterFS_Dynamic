@@ -1,0 +1,114 @@
+[OSEv3:children]
+masters
+nodes
+etcd
+glusterfs
+glusterfs_registry
+
+[masters]
+master.test-openshift.com
+
+[etcd]
+master.test-openshift.com
+
+[nodes]
+master.test-openshift.com  openshift_schedulable=true
+node1.test-openshift.com  openshift_schedulable=true openshift_node_labels="{'region': 'primary', 'zone': 'default'}"
+node2.test-openshift.com  openshift_schedulable=true openshift_node_labels="{'region': 'primary', 'zone': 'default'}"
+infra.test-openshift.com  openshift_schedulable=true openshift_node_labels="{'region': 'infra', 'zone': 'default'}"
+
+[OSEv3:vars]
+debug_level=4
+ansible_ssh_user=root
+openshift_enable_service_catalog=true
+ansible_service_broker_install=true
+
+openshift_master_dynamic_provisioning_enabled=True
+
+openshift_storage_glusterfs_namespace=app-storage
+openshift_storage_glusterfs_storageclass=true
+openshift_storage_glusterfs_storageclass_default=false
+openshift_storage_glusterfs_block_deploy=true
+openshift_storage_glusterfs_block_host_vol_size=100
+openshift_storage_glusterfs_block_storageclass=true
+openshift_storage_glusterfs_block_storageclass_default=false
+openshift_storage_glusterfs_wipe=true
+openshift_storage_glusterfs_heketi_wipe=true
+
+openshift_storage_glusterfs_registry_namespace=infra-storage
+openshift_storage_glusterfs_registry_storageclass=true
+openshift_storage_glusterfs_registry_storageclass_default=false
+openshift_storage_glusterfs_registry_block_deploy=true
+openshift_storage_glusterfs_registry_block_host_vol_size=100
+openshift_storage_glusterfs_registry_block_storageclass=true
+openshift_storage_glusterfs_registry_block_storageclass_default=false
+openshift_storage_glusterfs_registry_wipe=true
+openshift_storage_glusterfs_registry_heketi_wipe=true
+
+openshift_hosted_registry_storage_kind=glusterfs
+openshift_hosted_registry_storage_volume_size=5Gi
+openshift_hosted_registry_selector='node-role.kubernetes.io/infra=true'
+
+openshift_metrics_install_metrics=true
+openshift_metrics_hawkular_nodeselector={"node-role.kubernetes.io/infra": "true"}
+openshift_metrics_cassandra_nodeselector={"node-role.kubernetes.io/infra": "true"}
+openshift_metrics_heapster_nodeselector={"node-role.kubernetes.io/infra": "true"}
+openshift_metrics_storage_kind=dynamic
+openshift_metrics_storage_volume_size=10Gi
+openshift_metrics_cassandra_pvc_storage_class_name="glusterfs-registry-block"
+
+openshift_logging_install_logging=true
+openshift_logging_purge_logging=false
+openshift_logging_use_ops=false
+openshift_logging_es_cluster_size=1
+openshift_logging_es_number_of_replicas=1
+openshift_logging_es_nodeselector={"node-role.kubernetes.io/infra": "true"}
+openshift_logging_kibana_nodeselector={"node-role.kubernetes.io/infra": "true"}
+openshift_logging_curator_nodeselector={"node-role.kubernetes.io/infra": "true"}
+openshift_logging_storage_kind=dynamic
+openshift_logging_elasticsearch_storage_type=pvc
+openshift_logging_es_pvc_storage_class_name=glusterfs-registry-block
+openshift_logging_es_pvc_size=10Gi
+#openshift_logging_kibana_proxy_debug=true
+openshift_logging_kibana_hostname=kibana.apps.itrunner.org
+openshift_logging_kibana_memory_limit=512Mi
+openshift_logging_fluentd_memory_limit=512Mi
+openshift_logging_es_memory_limit=10Gi
+openshift_logging_curator_default_days=5
+
+
+containerized=false
+os_sdn_network_plugin_name='redhat/openshift-ovs-multitenant'
+openshift_disable_check=disk_availability,docker_storage,memory_availability,docker_image_availability
+
+openshift_node_kubelet_args={'pods-per-core': ['10']}
+
+deployment_type=origin
+openshift_deployment_type=origin
+
+#openshift_release=v3.9.0
+#openshift_pkg_version=-3.9.0
+#openshift_image_tag=v3.9.0
+openshift_service_catalog_image_version=v3.9.0
+template_service_broker_image_version=v3.9.0
+osm_use_cockpit=true
+
+
+# put the router on dedicated infra1 node
+openshift_hosted_router_selector='region=infra'
+openshift_master_default_subdomain=apps.test-openshift.com
+openshift_public_hostname=master.test-openshift.com
+
+# put the image registry on dedicated infra1 node
+openshift_hosted_registry_selector='region=infra'
+
+# Create Block Devices in Three Nodes other wise The installation will fail
+[glusterfs]
+node2.test-openshift.com glusterfs_devices='[ "/dev/xvdb" ]'
+node3.test-openshift.com glusterfs_devices='[ "/dev/xvdb" ]'
+node4.test-openshift.com glusterfs_devices='[ "/dev/xvdb" ]'
+
+[glusterfs_registry]
+master.test-openshift.com glusterfs_devices='[ "/dev/xvdb" ]'
+node1.test-openshift.com glusterfs_devices='[ "/dev/xvdb" ]'
+node2.test-openshift.com glusterfs_devices='[ "/dev/xvdb" ]'

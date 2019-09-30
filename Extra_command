@@ -1,0 +1,101 @@
+apiVersion: storage.k8s.io/v1beta1
+kind: StorageClass
+metadata:
+  name: gluster-block-prefix
+provisioner: kubernetes.io/glusterfs
+parameters:
+  resturl: 'http://heketi-registry.infra-storage.svc:8080'
+  restuser: admin
+  secretName: heketi-registry-admin-secret
+  secretNamespace: default
+  reclaimPolicy: Delete
+  volumeBindingMode: Immediate
+
+
+
+  kind: StorageClass
+  apiVersion: storage.k8s.io/v1
+  metadata:
+    name: gluster-block-prefix
+  provisioner: gluster.org/glusterblock-infra-storage
+  parameters:
+    chapauthenabled: 'true'
+    hacount: '3'
+    restsecretname: heketi-registry-admin-secret-block
+    restsecretnamespace: infra-storage
+    resturl: 'http://heketi-registry.infra-storage.svc:8080'
+    restuser: admin
+    volumeoptions: "features.shard enable"
+  reclaimPolicy: Delete
+  volumeBindingMode: Immediate
+
+
+  kind: StorageClass
+  apiVersion: storage.k8s.io/v1
+  metadata:
+    name: glusterfs-storage
+  provisioner: kubernetes.io/glusterfs
+  parameters:
+    resturl: 'http://heketi-storage.app-storage.svc:8080'
+    restuser: admin
+    secretName: heketi-storage-admin-secret
+    secretNamespace: app-storage
+  reclaimPolicy: Delete
+  volumeBindingMode: Immediate
+
+
+
+  oc patch storageclass gp2 -p '{"metadata": {"annotations": {"storageclass.kubernetes.io/is-default-class": "true"}}}'
+
+
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: glusterfs-test
+provisioner: kubernetes.io/glusterfs
+parameters:
+  resturl: 'http://heketi-registry.infra-storage.svc:8080'
+  restauthenabled: "false"
+
+http://mirror.centos.org/centos/7/storage/x86_64/gluster-4.0/
+
+baseurl=http://mirror.centos.org/centos/7/storage/$basearch/gluster-4.0/
+  ~]# yum install centos-release-gluster epel-release glusterfs-server -y; systemctl start glusterd; systemctl enable glusterd
+
+
+  [root@master ~]# cat 1.yml.bk
+  apiVersion: v1
+  kind: PersistentVolumeClaim
+  metadata:
+   name: pvc-engineering2
+   annotations:
+     gluster.org/glusterblock-app-storage: fast
+     volume.beta.kubernetes.io/storage-class: glusterfs-storage-block
+  spec:
+   accessModes:
+    - ReadWriteOnce
+   resources:
+     requests:
+       storage: 10Gi
+  [root@master ~]# cat 1.yml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-engineering9
+  spec:
+   accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Mi
+  storageClassName: glusterfs-registry
+  [root@master ~]#
+
+
+  [root@master ~]# vi /etc/yum.repos.d/Gluster.repo
+  [gluster4.0]
+  name=Gluster 4.0
+  baseurl=http://mirror.centos.org/centos/7/storage/$basearch/gluster-4.0/
+  gpgcheck=0
+  enabled=1
+  [root@master ~]#

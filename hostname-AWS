@@ -1,0 +1,11 @@
+hostnamectl set-hostname --static master.test-openshift.com;echo "preserve_hostname: true" >> /etc/cloud/cloud.cfg
+
+hostnamectl set-hostname --static infra.test-openshift.com;echo "preserve_hostname: true" >> /etc/cloud/cloud.cfg
+
+hostnamectl set-hostname --static node1.test-openshift.com;echo "preserve_hostname: true" >> /etc/cloud/cloud.cfg
+
+hostnamectl set-hostname --static node2.test-openshift.com;echo "preserve_hostname: true" >> /etc/cloud/cloud.cfg
+
+hostnamectl set-hostname --static node3.test-openshift.com;echo "preserve_hostname: true" >> /etc/cloud/cloud.cfg
+
+hostnamectl set-hostname --static node4.test-openshift.com;echo "preserve_hostname: true" >> /etc/cloud/cloud.cfg

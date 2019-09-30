@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: metrics
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+  - ReadWriteMany
+  nfs:
+    path: /exports/metrics
+    server: infra.test-openshift.com
+  persistentVolumeReclaimPolicy: Recycle
+  claimRef:
+    namespace: openshift-infra
+    name: metrics-cassandra-1

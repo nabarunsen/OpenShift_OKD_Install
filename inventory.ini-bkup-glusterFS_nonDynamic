@@ -1,0 +1,82 @@
+[OSEv3:children]
+masters
+nodes
+etcd
+glusterfs
+glusterfs_registry
+
+[masters]
+master.test-openshift.com
+
+[etcd]
+master.test-openshift.com
+
+[nodes]
+master.test-openshift.com  openshift_schedulable=true
+node1.test-openshift.com  openshift_schedulable=true openshift_node_labels="{'region': 'primary', 'zone': 'default'}"
+node2.test-openshift.com  openshift_schedulable=true openshift_node_labels="{'region': 'primary', 'zone': 'default'}"
+infra.test-openshift.com  openshift_schedulable=true openshift_node_labels="{'region': 'infra', 'zone': 'default'}"
+
+[OSEv3:vars]
+debug_level=4
+ansible_ssh_user=root
+openshift_enable_service_catalog=true
+ansible_service_broker_install=true
+
+openshift_storage_glusterfs_namespace=app-storage
+openshift_storage_glusterfs_storageclass=true
+openshift_storage_glusterfs_storageclass_default=false
+openshift_storage_glusterfs_block_deploy=true
+openshift_storage_glusterfs_block_host_vol_size=100
+openshift_storage_glusterfs_block_storageclass=true
+openshift_storage_glusterfs_block_storageclass_default=false
+# openshift_storage_glusterfs_heketi_fstab="/var/lib/heketi/fstab"
+openshift_storage_glusterfs_wipe=true
+openshift_storage_glusterfs_heketi_wipe=true
+
+openshift_storage_glusterfs_registry_namespace=infra-storage
+openshift_storage_glusterfs_registry_storageclass=false
+openshift_storage_glusterfs_registry_storageclass_default=false
+openshift_storage_glusterfs_registry_block_deploy=true
+openshift_storage_glusterfs_registry_block_host_vol_size=100
+openshift_storage_glusterfs_registry_block_storageclass=true
+openshift_storage_glusterfs_registry_block_storageclass_default=false
+openshift_storage_glusterfs_registry_wipe=true
+openshift_storage_glusterfs_registry_heketi_wipe=true
+
+
+containerized=false
+os_sdn_network_plugin_name='redhat/openshift-ovs-multitenant'
+openshift_disable_check=disk_availability,docker_storage,memory_availability,docker_image_availability
+
+openshift_node_kubelet_args={'pods-per-core': ['10']}
+
+deployment_type=origin
+openshift_deployment_type=origin
+
+#openshift_release=v3.9.0
+#openshift_pkg_version=-3.9.0
+#openshift_image_tag=v3.9.0
+openshift_service_catalog_image_version=v3.9.0
+template_service_broker_image_version=v3.9.0
+osm_use_cockpit=true
+
+
+# put the router on dedicated infra1 node
+openshift_hosted_router_selector='region=infra'
+openshift_master_default_subdomain=apps.test-openshift.com
+openshift_public_hostname=master.test-openshift.com
+
+# put the image registry on dedicated infra1 node
+openshift_hosted_registry_selector='region=infra'
+
+# Create Block Devices in Three Nodes other wise The installation will fail
+[glusterfs]
+node2.test-openshift.com glusterfs_devices='[ "/dev/xvdc" ]'
+node3.test-openshift.com glusterfs_devices='[ "/dev/xvdc" ]'
+node4.test-openshift.com glusterfs_devices='[ "/dev/xvdc" ]'
+
+[glusterfs_registry]
+infra.test-openshift.com glusterfs_devices='[ "/dev/xvdc" ]'
+node1.test-openshift.com glusterfs_devices='[ "/dev/xvdc" ]'
+node2.test-openshift.com glusterfs_devices='[ "/dev/xvdg" ]'

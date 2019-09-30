@@ -1,0 +1,709 @@
+Deploying OpenShift 3.11  Cluster
+################################
+
+1. Create this below EC2 t2.xlarge VM Select CentOS 7.5 and Enable Public IP Address and Extra Block Device to each VM
+
+2. Update DNS entries for all hosts in Route 53 DNS Hosted zone
+
+3. Update the Hostname
+
+    hostnamectl set-hostname --static master.test-openshift.com;echo "preserve_hostname: true" >> /etc/cloud/cloud.cfg
+
+    hostnamectl set-hostname --static infra.test-openshift.com;echo "preserve_hostname: true" >> /etc/cloud/cloud.cfg
+
+    hostnamectl set-hostname --static node1.test-openshift.com;echo "preserve_hostname: true" >> /etc/cloud/cloud.cfg
+
+    hostnamectl set-hostname --static node2.test-openshift.com;echo "preserve_hostname: true" >> /etc/cloud/cloud.cfg
+
+    hostnamectl set-hostname --static node3.test-openshift.com;echo "preserve_hostname: true" >> /etc/cloud/cloud.cfg
+
+    hostnamectl set-hostname --static node4.test-openshift.com;echo "preserve_hostname: true" >> /etc/cloud/cloud.cfg
+
+4. Check all required Packages
+
+# yum install wget git net-tools bind-utils yum-utils iptables-services bridge-utils bash-completion kexec-tools sos psacct
+
+# yum install wget git net-tools bind-utils yum-utils iptables-services bridge-utils bash-completion kexec-tools sos psacct \
+dnsmasq ntp logrotate httpd-tools firewalld libselinux-python conntrack-tools openssl iproute python-dbus PyYAML \
+glusterfs-fuse device-mapper-multipath nfs-utils iscsi-initiator-utils ceph-common atomic python-docker-py
+
+5. vi inventory.ini
+
+[OSEv3:children]
+masters
+nodes
+etcd
+
+[masters]
+master.test-openshift.com
+
+[etcd]
+master.test-openshift.com
+
+[nodes]
+master.test-openshift.com openshift_node_group_name='node-config-master'
+infra.test-openshift.com openshift_node_group_name='node-config-infra'
+node1.test-openshift.com openshift_node_group_name='node-config-compute'
+node2.test-openshift.com openshift_node_group_name='node-config-compute'
+node3.test-openshift.com openshift_node_group_name='node-config-compute'
+node4.test-openshift.com openshift_node_group_name='node-config-compute'
+
+[OSEv3:vars]
+debug_level=4
+ansible_ssh_user=root
+openshift_enable_service_catalog=true
+ansible_service_broker_install=true
+openshift_disable_check=disk_availability,docker_storage,memory_availability,docker_image_availability
+
+openshift_master_identity_providers=[{'name': 'htpasswd_auth', 'login': 'true', 'challenge': 'true', 'kind': 'HTPasswdPasswordIdentityProvider'}]
+
+openshift_deployment_type=origin
+openshift_master_default_subdomain=apps.test-openshift.com
+
+openshift_master_cluster_hostname=master.test-openshift.com
+openshift_master_cluster_public_hostname=master.test-openshift.com
+
+# default selectors for router and registry services
+openshift_router_selector='node-role.kubernetes.io/infra=true'
+openshift_registry_selector='node-role.kubernetes.io/infra=true'
+
+Save this file
+
+6. git clone https://github.com/openshift/openshift-ansible.git; cd openshift-ansible && git fetch && git checkout release-3.11
+
+7. Check all the SSH keys to added from Master to infra and all compute Nodes
+
+8. ansible-playbook -i ~/inventory.ini playbooks/prerequisites.yml
+
+9. ansible-playbook -i ~/inventory.ini playbooks/deploy_cluster.yml
+
+10. CHANGE LOG IN IDENTITY PROVIDER
+
+The default behavior of a freshly installed OpenShift Container Platform instance is to deny any user from logging in.
+
+   To change the authentication method to HTPasswd:
+
+   a. Openthe /etc/origin/master/master-config.yaml filein edit mode.
+
+   b. Findthe identityProviders section.
+
+   c. Change DenyAllPasswordIdentityProvider to HTPasswdPasswordIdentityProvider provider.
+
+   c. Change the value of the name label to htpasswd_auth and add a new line file: /etc/origin/master/htpasswd
+   in the provider section.
+
+   An example identityProviders section with HTPasswdPasswordIdentityProvider would look like the following.
+   oauthConfig: ...
+   identityProviders: - challenge: true
+   login: true
+   name: htpasswd_auth provider provider:
+   apiVersion: v1
+   kind: HTPasswdPasswordIdentityProvider
+   file: /etc/origin/master/htpasswd
+
+    e. Savethefile.
+
+CREATE USER ACCOUNTS
+Now that you are using the HTPasswdPasswordIdentityProvider provider, you need to generate these user accounts.
+   f. You can use the httpd-tools package to obtain the htpasswd binary that can generate these accounts.
+
+   #  yum -y install httpd-tools
+    Createauseraccount.
+
+   OpenShift Container Platform 3.11 Getting Started
+   # touch /etc/origin/master/htpasswd
+   # htpasswd -b /etc/origin/master/htpasswd admin redhat
+   You have created a user, admin, with the password, redhat.
+
+   g. RestartOpenShiftbeforegoingforward.
+
+   # master-restart api
+   # master-restart controllers
+
+   h. Give this user account cluster-admin privileges, which allow sit to do everything.
+
+   $ oc adm policy add-cluster-role-to-user cluster-admin admin
+
+   When running oc adm commands, you should run them only from the first master listed in the
+   Ansible host inventory file, by default /etc/ansible/hosts.
+
+   i. You can use this user name/password combination to login via the webconsole or the command line.
+   To test this, run the following command.
+
+   $ oc login -u admin
+
+11. Verify Installation
+
+
+
+   [root@master ~]# oc whoami
+   admin
+
+
+   Step 15: Use below command to list the projects, pods, nodes, Replication Controllers, Services and Deployment Config.
+
+   [root@master ~]# oc get projects
+   NAME                    DISPLAY NAME   STATUS
+   default                                Active
+   kube-public                            Active
+   kube-system                            Active
+   logging                                Active
+   management-infra1                       Active
+   openshift                              Active
+   openshift-infra1                        Active
+   openshift-node                         Active
+   openshift-web-console                  Active
+
+
+   [root@master ~]# oc get nodes
+   NAME                 STATUS    ROLES     AGE       VERSION
+   master.example.com   Ready     master    29m       v1.9.1+a0ce1bc657
+   node1.example.com    Ready     compute   22m       v1.9.1+a0ce1bc657
+   node2.example.com    Ready     compute   22m       v1.9.1+a0ce1bc657
+   node3.example.com    Ready     <none>    22m       v1.9.1+a0ce1bc657
+
+
+   [root@master ~]# oc get pod --all-namespaces
+   NAMESPACE               NAME                          READY     STATUS    RESTARTS   AGE
+   default                 docker-registry-1-krmpx       1/1       Running   0          15m
+   default                 registry-console-1-z9sbd      1/1       Running   0          14m
+   default                 router-1-q7g5v                1/1       Running   0          15m
+   openshift-web-console   webconsole-5f649b49b5-hr9dq   1/1       Running   0          14m
+
+
+   [root@master ~]# oc get rc
+   NAME                 DESIRED   CURRENT   READY     AGE
+   docker-registry-1    1         1         1         15m
+   registry-console-1   1         1         1         14m
+   router-1             1         1         1         16m
+
+
+   [root@master ~]# oc get svc
+   NAME               TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)                   AGE
+   docker-registry    ClusterIP   172.30.34.127    <none>        5000/TCP                  16m
+   kubernetes         ClusterIP   172.30.0.1       <none>        443/TCP,53/UDP,53/TCP     35m
+   registry-console   ClusterIP   172.30.62.197    <none>        9000/TCP                  15m
+   router             ClusterIP   172.30.141.143   <none>        80/TCP,443/TCP,1936/TCP   16m
+
+
+   [root@master ~]# oc get dc
+   NAME               REVISION   DESIRED   CURRENT   TRIGGERED BY
+   docker-registry    1          1         1         config
+   registry-console   1          1         1         config
+   router             1          1         1         config
+
+
+
+   Verifying Multiple etcd Hosts:
+   ##############################
+
+   On a master host, verify the etcd cluster health, substituting for the FQDNs of your etcd hosts in
+   the following:
+
+   [root@master ~]# yum install etcd -y
+
+   [root@master ~]# etcdctl -C https://master.openshift.example.com:2379 --ca-file=/etc/origin/master/master.etcd-ca.crt --cert-file=/etc/origin/master/master.etcd-client.crt --key-file=/etc/origin/master/master.etcd-client.key cluster-health
+
+   member b211b9f9d8f23828 is healthy: got healthy result from https://192.168.56.10:2379
+   cluster is healthy
+
+
+   Also verify the member list is correct:
+
+   [root@master ~]# etcdctl -C https://master.openshift.example.com:2379 --ca-file=/etc/origin/master/master.etcd-ca.crt --cert-file=/etc/origin/master/master.etcd-client.crt --key-file=/etc/origin/master/master.etcd-client.key member list
+
+   b211b9f9d8f23828: name=master.example.com peerURLs=https://192.168.56.10:2380 clientURLs=https://192.168.56.10:2379 isLeader=true
+
+
+   Now you can access OpenShift Cluster using Web Browser as following:
+
+
+   https://master.openshift.example.com:8443
+
+   Username: admin
+   Password: redhat
+
+   Open Cluster console
+
+   https://console.apps.test-openshift.com
+
+   Username: admin
+   Password: redhat
+
+   Open Service Catalogue console
+
+   https://master.test-openshift.com:8443
+
+   Username: admin
+   Password: redhat
+
+12. Get the Heketi Admin Secret Key from CLI or webconsole
+
+  a.Install the jq package
+
+    $yum install jq -y
+
+  b. Take heketi admin secret
+
+    oc get secret heketi-storage-admin-secret --namespace app-storage -o json | jq -r .data.key | base64 -d
+
+   Save this in some filein
+
+13. GlusterFS file system Installation
+
+
+  a. Run thos below command to all Nodes
+
+  setsebool -P virt_sandbox_use_fusefs=on virt_use_fusefs=on
+
+  b.  vi inventory.ini
+
+[OSEv3:children]
+masters
+nodes
+etcd
+glusterfs
+
+[masters]
+master.test-openshift.com
+
+[etcd]
+master.test-openshift.com
+
+[nodes]
+master.test-openshift.com openshift_node_group_name='node-config-master'
+infra.test-openshift.com openshift_node_group_name='node-config-infra'
+node1.test-openshift.com openshift_node_group_name='node-config-compute'
+node2.test-openshift.com openshift_node_group_name='node-config-compute'
+node3.test-openshift.com openshift_node_group_name='node-config-compute'
+node4.test-openshift.com openshift_node_group_name='node-config-compute'
+
+[OSEv3:vars]
+debug_level=4
+ansible_ssh_user=root
+openshift_enable_service_catalog=true
+ansible_service_broker_install=true
+openshift_disable_check=disk_availability,docker_storage,memory_availability,docker_image_availability
+
+openshift_master_identity_providers=[{'name': 'htpasswd_auth', 'login': 'true', 'challenge': 'true', 'kind': 'HTPasswdPasswordIdentityProvider'}]
+
+openshift_deployment_type=origin
+openshift_master_default_subdomain=apps.test-openshift.com
+
+openshift_master_cluster_hostname=master.test-openshift.com
+openshift_master_cluster_public_hostname=master.test-openshift.com
+
+openshift_master_dynamic_provisioning_enabled=True
+
+openshift_storage_glusterfs_namespace=app-storage
+openshift_storage_glusterfs_storageclass=true
+openshift_storage_glusterfs_storageclass_default=false
+openshift_storage_glusterfs_block_deploy=true
+openshift_storage_glusterfs_block_host_vol_size=100
+openshift_storage_glusterfs_block_storageclass=true
+openshift_storage_glusterfs_block_storageclass_default=false
+openshift_storage_glusterfs_wipe=true
+openshift_storage_glusterfs_heketi_wipe=true
+
+
+# default selectors for router and registry services
+openshift_router_selector='node-role.kubernetes.io/infra=true'
+openshift_registry_selector='node-role.kubernetes.io/infra=true'
+
+[glusterfs]
+node2.test-openshift.com glusterfs_devices='[ "/dev/xvdb" ]'
+node3.test-openshift.com glusterfs_devices='[ "/dev/xvdb" ]'
+node4.test-openshift.com glusterfs_devices='[ "/dev/xvdb" ]'
+
+
+14. Install commands
+
+    ansible-playbook ~/inventory.ini ~/openshift-ansible/playbooks/openshift-glusterfs/config.yml
+
+    if require uninstall please run below commands
+
+    ansible-playbook ~/inventory.ini ~/openshift-ansible/playbooks/openshift-glusterfs/uninstall.yaml
+
+15. Verify all pods and Storage Classes in CLI mode/ webconsole
+
+16. Internal Registry with gluster FS
+
+   vi inventory.ini
+
+[OSEv3:children]
+masters
+nodes
+etcd
+glusterfs
+glusterfs_registry
+
+[masters]
+master.test-openshift.com
+
+[etcd]
+master.test-openshift.com
+
+[nodes]
+master.test-openshift.com openshift_node_group_name='node-config-master'
+infra.test-openshift.com openshift_node_group_name='node-config-infra'
+node1.test-openshift.com openshift_node_group_name='node-config-compute'
+node2.test-openshift.com openshift_node_group_name='node-config-compute'
+node3.test-openshift.com openshift_node_group_name='node-config-compute'
+node4.test-openshift.com openshift_node_group_name='node-config-compute'
+
+[OSEv3:vars]
+debug_level=4
+ansible_ssh_user=root
+openshift_enable_service_catalog=true
+ansible_service_broker_install=true
+openshift_disable_check=disk_availability,docker_storage,memory_availability,docker_image_availability
+
+openshift_master_identity_providers=[{'name': 'htpasswd_auth', 'login': 'true', 'challenge': 'true', 'kind': 'HTPasswdPasswordIdentityProvider'}]
+
+openshift_deployment_type=origin
+openshift_master_default_subdomain=apps.test-openshift.com
+
+openshift_master_cluster_hostname=master.test-openshift.com
+openshift_master_cluster_public_hostname=master.test-openshift.com
+
+openshift_master_dynamic_provisioning_enabled=True
+
+openshift_storage_glusterfs_namespace=app-storage
+openshift_storage_glusterfs_storageclass=true
+openshift_storage_glusterfs_storageclass_default=false
+openshift_storage_glusterfs_block_deploy=true
+openshift_storage_glusterfs_block_host_vol_size=100
+openshift_storage_glusterfs_block_storageclass=true
+openshift_storage_glusterfs_block_storageclass_default=false
+openshift_storage_glusterfs_wipe=true
+openshift_storage_glusterfs_heketi_wipe=true
+
+openshift_storage_glusterfs_heketi_admin_key='8QTIi5cFwYKzlPZ8DuO5mmwQ+VeaIkXhEzn0BrQUYyE='
+openshift_storage_glusterfs_registry_namespace=infra-storage
+openshift_storage_glusterfs_registry_storageclass=true
+openshift_storage_glusterfs_registry_storageclass_default=true
+openshift_storage_glusterfs_registry_block_deploy=true
+openshift_storage_glusterfs_registry_block_host_vol_size=100
+openshift_storage_glusterfs_registry_block_storageclass=true
+openshift_storage_glusterfs_registry_block_storageclass_default=false
+#openshift_storage_glusterfs_registry_block_host_vol_create=true
+openshift_storage_glusterfs_registry_wipe=true
+openshift_storage_glusterfs_registry_heketi_wipe=true
+
+openshift_hosted_registry_storage_kind=glusterfs
+openshift_hosted_registry_storage_volume_size=5Gi
+openshift_hosted_registry_selector='node-role.kubernetes.io/infra=true'
+
+
+# default selectors for router and registry services
+openshift_router_selector='node-role.kubernetes.io/infra=true'
+openshift_registry_selector='node-role.kubernetes.io/infra=true'
+
+[glusterfs]
+node2.test-openshift.com glusterfs_devices='[ "/dev/xvdb" ]'
+node3.test-openshift.com glusterfs_devices='[ "/dev/xvdb" ]'
+node4.test-openshift.com glusterfs_devices='[ "/dev/xvdb" ]'
+
+[glusterfs_registry]
+master.test-openshift.com glusterfs_devices='[ "/dev/xvdb" ]'
+infra.test-openshift.com glusterfs_devices='[ "/dev/xvdb" ]'
+node1.test-openshift.com glusterfs_devices='[ "/dev/xvdb" ]'
+
+17. Registry Install commands
+
+    ansible-playbook ~/openshift-ansible/playbooks/openshift-glusterfs/registry.yml
+
+    if require uninstall please run below commands
+
+    ansible-playbook ~/openshift-ansible/playbooks/openshift-glusterfs/uninstall.yaml
+
+18. Validate glusyerFS and Internal Registry gluster FS Installation
+
+    $ oc projects
+    $ oc project app-storage
+    $ oc get pods
+    NAME                            READY     STATUS    RESTARTS   AGE
+    deploy-heketi-storage-1-vtxgh   1/1       Running   0          2m
+    glusterfs-storage-jl9m6         1/1       Running   0          6m
+    glusterfs-storage-mq2rk         1/1       Running   0          6m
+    glusterfs-storage-tb5bj         1/1       Running   0          6m
+
+    Check the pod operation status at any time during the installation. If there is an abnormal pod, use oc logs -f pod_name to view the log:
+
+    $ oc get pods -n app-storage,infra-storage
+    $ oc get pods -n infra-storage
+
+    When an abnormal situation occurs, perform uninstallation and re-installation. The following two parameters are set to true, and the data will be cleared when uninstalling:
+    openshift_storage_glusterfs_wipe=true
+    openshift_storage_glusterfs_heketi_wipe=true
+
+    After successful installation, there are the following pods:
+    NAME                                          READY     STATUS    RESTARTS   AGE
+    glusterblock-storage-provisioner-dc-1-m4555   1/1       Running   0          18s
+    glusterfs-storage-26v4l                       1/1       Running   0          19m
+    glusterfs-storage-ft4bn                       1/1       Running   0          19m
+    glusterfs-storage-rxglx                       1/1       Running   0          19m
+    heketi-storage-1-mql5g                        1/1       Running   0          49s
+
+    NAME                                           READY     STATUS    RESTARTS   AGE
+    glusterblock-registry-provisioner-dc-1-k5l4z   1/1       Running   0          6m
+    glusterfs-registry-2f9vt                       1/1       Running   0          39m
+    glusterfs-registry-j78c6                       1/1       Running   0          39m
+    glusterfs-registry-xkl6p                       1/1       Running   0          39m
+    heketi-registry-1-655dm                        1/1       Running   0          6m
+
+19. Try to create StorageClass and PersistentVolumeClaim using those storage  Classes
+
+    a. Create Test Storage Class in CLI or Webconsole
+
+      kind: StorageClass
+      apiVersion: storage.k8s.io/v1
+      metadata:
+        name: test
+      provisioner: kubernetes.io/glusterfs
+      parameters:
+        resturl: 'http://heketi-storage.app-storage.svc:8080'
+        restuser: admin
+        secretName: heketi-storage-admin-secret
+        secretNamespace: app-storage
+      reclaimPolicy: Delete
+      volumeBindingMode: Immediate
+
+      =============================================
+
+
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+       name: pvc-engineering2
+      spec:
+       storageClassName: glusterfs-registry
+       accessModes:
+        - ReadWriteOnce
+       resources:
+         requests:
+           storage: 1Gi
+
+20. Metrics installation
+
+    vi inventory.ini
+
+[OSEv3:children]
+masters
+nodes
+etcd
+glusterfs
+glusterfs_registry
+
+[masters]
+master.test-openshift.com
+
+[etcd]
+master.test-openshift.com
+
+[nodes]
+master.test-openshift.com openshift_node_group_name='node-config-master'
+infra.test-openshift.com openshift_node_group_name='node-config-infra'
+node1.test-openshift.com openshift_node_group_name='node-config-compute'
+node2.test-openshift.com openshift_node_group_name='node-config-compute'
+node3.test-openshift.com openshift_node_group_name='node-config-compute'
+node4.test-openshift.com openshift_node_group_name='node-config-compute'
+
+[OSEv3:vars]
+debug_level=4
+ansible_ssh_user=root
+openshift_enable_service_catalog=true
+ansible_service_broker_install=true
+openshift_disable_check=disk_availability,docker_storage,memory_availability,docker_image_availability
+
+openshift_master_identity_providers=[{'name': 'htpasswd_auth', 'login': 'true', 'challenge': 'true', 'kind': 'HTPasswdPasswordIdentityProvider'}]
+
+openshift_deployment_type=origin
+openshift_master_default_subdomain=apps.test-openshift.com
+
+openshift_master_cluster_hostname=master.test-openshift.com
+openshift_master_cluster_public_hostname=master.test-openshift.com
+
+openshift_master_dynamic_provisioning_enabled=True
+
+openshift_storage_glusterfs_namespace=app-storage
+openshift_storage_glusterfs_storageclass=true
+openshift_storage_glusterfs_storageclass_default=false
+openshift_storage_glusterfs_block_deploy=true
+openshift_storage_glusterfs_block_host_vol_size=100
+openshift_storage_glusterfs_block_storageclass=true
+openshift_storage_glusterfs_block_storageclass_default=false
+openshift_storage_glusterfs_wipe=true
+openshift_storage_glusterfs_heketi_wipe=true
+
+openshift_storage_glusterfs_heketi_admin_key='2C8D9aR3LnJ/rsKiwppJkU+2ncDfdnUyF+FLvhu5FiY='
+openshift_storage_glusterfs_registry_namespace=infra-storage
+openshift_storage_glusterfs_registry_storageclass=true
+openshift_storage_glusterfs_registry_storageclass_default=true
+openshift_storage_glusterfs_registry_block_deploy=true
+openshift_storage_glusterfs_registry_block_host_vol_size=100
+openshift_storage_glusterfs_registry_block_storageclass=true
+openshift_storage_glusterfs_registry_block_storageclass_default=false
+#openshift_storage_glusterfs_registry_block_host_vol_create=true
+openshift_storage_glusterfs_registry_wipe=true
+openshift_storage_glusterfs_registry_heketi_wipe=true
+
+openshift_hosted_registry_storage_kind=glusterfs
+openshift_hosted_registry_storage_volume_size=5Gi
+openshift_hosted_registry_selector='node-role.kubernetes.io/infra=true'
+
+openshift_metrics_install_metrics=true
+openshift_metrics_hawkular_nodeselector={"node-role.kubernetes.io/infra": "true"}
+openshift_metrics_cassandra_nodeselector={"node-role.kubernetes.io/infra": "true"}
+openshift_metrics_heapster_nodeselector={"node-role.kubernetes.io/infra": "true"}
+openshift_metrics_storage_kind=dynamic
+openshift_metrics_storage_volume_size=10Gi
+openshift_metrics_cassandra_pvc_storage_class_name='glusterfs-registry'
+openshift_metrics_cassandra_enable_prometheus_endpoint=true
+openshift_metrics_hawkular_enable_prometheus_endpoint=true
+
+# default selectors for router and registry services
+openshift_router_selector='node-role.kubernetes.io/infra=true'
+openshift_registry_selector='node-role.kubernetes.io/infra=true'
+
+[glusterfs]
+node2.test-openshift.com glusterfs_devices='[ "/dev/xvdb" ]'
+node3.test-openshift.com glusterfs_devices='[ "/dev/xvdb" ]'
+node4.test-openshift.com glusterfs_devices='[ "/dev/xvdb" ]'
+
+[glusterfs_registry]
+master.test-openshift.com glusterfs_devices='[ "/dev/xvdb" ]'
+infra.test-openshift.com glusterfs_devices='[ "/dev/xvdb" ]'
+node1.test-openshift.com glusterfs_devices='[ "/dev/xvdb" ]'
+
+    ansible-playbook ~/inventory.ini ~/openshift-ansible/playbooks/openshift-metrics/config.yml
+
+21. Metrics verification
+
+[root@master openshift-ansible]# oc get pods -n openshift-infra
+ NAME                            READY     STATUS      RESTARTS   AGE
+ hawkular-cassandra-1-j9r94      1/1       Running     0          4m
+ hawkular-metrics-qbfr5          1/1       Running     0          4m
+ hawkular-metrics-schema-qjwcg   0/1       Completed   0          4m
+ heapster-frjgn                  1/1       Running     0          4m
+ [root@master openshift-ansible]#
+
+ https://hawkular-metrics.apps.test-openshift.com/hawkular/metrics
+
+22. Change the EC2 instance size to t2.extralarge
+
+23. Logging Installation
+
+    vi inventory.ini
+
+[OSEv3:children]
+masters
+nodes
+etcd
+glusterfs
+glusterfs_registry
+
+[masters]
+master.test-openshift.com
+
+[etcd]
+master.test-openshift.com
+
+[nodes]
+master.test-openshift.com openshift_node_group_name='node-config-master'
+infra.test-openshift.com openshift_node_group_name='node-config-infra'
+node1.test-openshift.com openshift_node_group_name='node-config-compute'
+node2.test-openshift.com openshift_node_group_name='node-config-compute'
+node3.test-openshift.com openshift_node_group_name='node-config-compute'
+node4.test-openshift.com openshift_node_group_name='node-config-compute'
+
+[OSEv3:vars]
+debug_level=4
+ansible_ssh_user=root
+openshift_enable_service_catalog=true
+ansible_service_broker_install=true
+openshift_disable_check=disk_availability,docker_storage,memory_availability,docker_image_availability
+
+openshift_master_identity_providers=[{'name': 'htpasswd_auth', 'login': 'true', 'challenge': 'true', 'kind': 'HTPasswdPasswordIdentityProvider'}]
+
+openshift_deployment_type=origin
+openshift_master_default_subdomain=apps.test-openshift.com
+
+openshift_master_cluster_hostname=master.test-openshift.com
+openshift_master_cluster_public_hostname=master.test-openshift.com
+
+openshift_master_dynamic_provisioning_enabled=True
+
+openshift_storage_glusterfs_namespace=app-storage
+openshift_storage_glusterfs_storageclass=true
+openshift_storage_glusterfs_storageclass_default=false
+openshift_storage_glusterfs_block_deploy=true
+openshift_storage_glusterfs_block_host_vol_size=100
+openshift_storage_glusterfs_block_storageclass=true
+openshift_storage_glusterfs_block_storageclass_default=false
+openshift_storage_glusterfs_wipe=true
+openshift_storage_glusterfs_heketi_wipe=true
+
+openshift_storage_glusterfs_heketi_admin_key='2C8D9aR3LnJ/rsKiwppJkU+2ncDfdnUyF+FLvhu5FiY='
+openshift_storage_glusterfs_registry_namespace=infra-storage
+openshift_storage_glusterfs_registry_storageclass=true
+openshift_storage_glusterfs_registry_storageclass_default=true
+openshift_storage_glusterfs_registry_block_deploy=true
+openshift_storage_glusterfs_registry_block_host_vol_size=100
+openshift_storage_glusterfs_registry_block_storageclass=true
+openshift_storage_glusterfs_registry_block_storageclass_default=false
+#openshift_storage_glusterfs_registry_block_host_vol_create=true
+openshift_storage_glusterfs_registry_wipe=true
+openshift_storage_glusterfs_registry_heketi_wipe=true
+
+openshift_hosted_registry_storage_kind=glusterfs
+openshift_hosted_registry_storage_volume_size=5Gi
+openshift_hosted_registry_selector='node-role.kubernetes.io/infra=true'
+
+openshift_metrics_install_metrics=true
+openshift_metrics_hawkular_nodeselector={"node-role.kubernetes.io/infra": "true"}
+openshift_metrics_cassandra_nodeselector={"node-role.kubernetes.io/infra": "true"}
+openshift_metrics_heapster_nodeselector={"node-role.kubernetes.io/infra": "true"}
+openshift_metrics_storage_kind=dynamic
+openshift_metrics_storage_volume_size=10Gi
+openshift_metrics_cassandra_pvc_storage_class_name='glusterfs-registry'
+openshift_metrics_cassandra_enable_prometheus_endpoint=true
+openshift_metrics_hawkular_enable_prometheus_endpoint=true
+
+openshift_logging_install_logging=true
+openshift_logging_purge_logging=false
+openshift_logging_use_ops=false
+openshift_logging_es_cluster_size=1
+openshift_logging_es_number_of_replicas=1
+openshift_logging_es_nodeselector={"node-role.kubernetes.io/infra": "true"}
+openshift_logging_kibana_nodeselector={"node-role.kubernetes.io/infra": "true"}
+openshift_logging_curator_nodeselector={"node-role.kubernetes.io/infra": "true"}
+openshift_logging_storage_kind=dynamic
+#openshift_logging_elasticsearch_storage_type=pvc
+openshift_logging_es_pvc_dynamic=true
+openshift_logging_es_pvc_storage_class_name=glusterfs-registry
+openshift_logging_es_pvc_size=10Gi
+#openshift_logging_kibana_proxy_debug=true
+openshift_logging_kibana_hostname=kibana.apps.itrunner.org
+openshift_logging_kibana_memory_limit=512Mi
+openshift_logging_fluentd_memory_limit=512Mi
+openshift_logging_es_memory_limit=10Gi
+openshift_logging_curator_default_days=10
+
+# default selectors for router and registry services
+openshift_router_selector='node-role.kubernetes.io/infra=true'
+openshift_registry_selector='node-role.kubernetes.io/infra=true'
+
+[glusterfs]
+node2.test-openshift.com glusterfs_devices='[ "/dev/xvdb" ]'
+node3.test-openshift.com glusterfs_devices='[ "/dev/xvdb" ]'
+node4.test-openshift.com glusterfs_devices='[ "/dev/xvdb" ]'
+
+[glusterfs_registry]
+master.test-openshift.com glusterfs_devices='[ "/dev/xvdb" ]'
+infra.test-openshift.com glusterfs_devices='[ "/dev/xvdb" ]'
+node1.test-openshift.com glusterfs_devices='[ "/dev/xvdb" ]'
+
+ 24. Installation of logging
+
+    ansible-playbook ~/inventory.ini ~/openshift-ansible/playbooks/openshift-logging/config.yml

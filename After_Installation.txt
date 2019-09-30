@@ -1,0 +1,109 @@
+CHANGE LOG IN IDENTITY PROVIDER
+The default behavior of a freshly installed OpenShift Container Platform instance is to deny any user from logging in.
+
+   To change the authentication method to HTPasswd:
+
+   1. Openthe /etc/origin/master/master-config.yaml filein edit mode.
+
+   2. Findthe identityProviders section.
+
+   3. Change DenyAllPasswordIdentityProvider to HTPasswdPasswordIdentityProvider provider.
+
+   4. Change the value of the name label to htpasswd_auth and add a new line file: /etc/origin/master/htpasswd
+   in the provider section.
+
+   An example identityProviders section with HTPasswdPasswordIdentityProvider would look like the following.
+   oauthConfig: ...
+   identityProviders: - challenge: true
+   login: true
+   name: htpasswd_auth provider provider:
+   apiVersion: v1
+   kind: HTPasswdPasswordIdentityProvider
+   file: /etc/origin/master/htpasswd
+
+    5. Savethefile.
+
+CREATE USER ACCOUNTS
+Now that you are using the HTPasswdPasswordIdentityProvider provider, you need to generate these user accounts.
+   1. You can use the httpd-tools package to obtain the htpasswd binary that can generate these accounts.
+
+   #  yum -y install httpd-tools
+    Createauseraccount.
+
+   OpenShift Container Platform 3.11 Getting Started
+   # touch /etc/origin/master/htpasswd
+   # htpasswd -b /etc/origin/master/htpasswd admin redhat
+   You have created a user, admin, with the password, redhat.
+
+   3. RestartOpenShiftbeforegoingforward.
+
+   # master-restart api
+   # master-restart controllers
+
+   4. Give this user account cluster-admin privileges, which allow sit to do everything.
+
+   $ oc adm policy add-cluster-role-to-user cluster-admin admin
+
+   When running oc adm commands, you should run them only from the first master listed in the
+   Ansible host inventory file, by default /etc/ansible/hosts.
+
+   5. You can use this user name/password combination to login via the webconsole or the command line.
+   To test this, run the following command.
+
+   $ oc login -u admin
+
+   Before going forward, change to the default project. $ oc project default
+
+ Ger the Heketi Admin Secret
+
+  1. Install the jq package
+
+    $yum install jq -y
+
+  2. Get the Heketi Admin Secret Key
+
+    $[root@master openshift-ansible]# oc get secret heketi-storage-admin-secret --namespace app-storage -o json | jq -r .data.key | base64 -d
+     hPHVorudQAfQBXwPbepfJPuTLiJD4cGGIN4hHHFdgfg=
+
+  3. Update the inventory.ini file
+
+    openshift_storage_glusterfs_heketi_admin_key=hPHVorudQAfQBXwPbepfJPuTLiJD4cGGIN4hHHFdgfg=
+    openshift_storage_glusterfs_registry_namespace=infra-storage
+    openshift_storage_glusterfs_registry_storageclass=false
+    openshift_storage_glusterfs_registry_storageclass_default=false
+    openshift_storage_glusterfs_registry_block_deploy=true
+    openshift_storage_glusterfs_registry_block_host_vol_size=100
+    openshift_storage_glusterfs_registry_block_storageclass=true
+    openshift_storage_glusterfs_registry_block_storageclass_default=false
+    openshift_storage_glusterfs_registry_wipe=true
+    openshift_storage_glusterfs_registry_heketi_wipe=true
+
+  4. Now run the registry setup
+
+   [root@master openshift-ansible]# ansible-playbook -i ~/inventory.ini playbooks/openshift-glusterfs/registry.yml
+
+
+   INSTALLER STATUS ********************************************************************************************************************************************************************************************************************************************************************************************************
+Initialization  : Complete (0:00:29)
+Tuesday 24 September 2019  11:21:51 -0400 (0:00:00.032)       0:12:22.594 *****
+===============================================================================
+openshift_storage_glusterfs : Load heketi topology ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- 425.69s
+openshift_storage_glusterfs : Wait for GlusterFS pods ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- 73.62s
+openshift_storage_glusterfs : Wait for deploy-heketi pod -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- 31.57s
+openshift_storage_glusterfs : Wait for glusterblock provisioner pod --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- 21.24s
+openshift_storage_glusterfs : Wait for glusterblock provisioner pod --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- 21.22s
+openshift_storage_glusterfs : Wait for heketi pod --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- 10.94s
+openshift_storage_glusterfs : Wait for copy job to finish ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- 10.88s
+openshift_storage_glusterfs : Create GlusterFS registry volume --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- 5.60s
+openshift_storage_glusterfs : Create heketi DB volume ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ 5.59s
+openshift_storage_glusterfs : Deploy glusterblock provisioner ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- 3.19s
+openshift_storage_glusterfs : Deploy glusterblock provisioner ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- 3.05s
+openshift_storage_glusterfs : Deploy heketi pod ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ 2.68s
+Gathering Facts -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- 2.64s
+Gathering Facts -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- 2.61s
+openshift_storage_glusterfs : Deploy deploy-heketi pod ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- 2.60s
+openshift_storage_glusterfs : Label GlusterFS nodes -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- 1.97s
+openshift_storage_glusterfs : Generate topology file ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- 1.90s
+openshift_storage_glusterfs : Delete deploy resources ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ 1.88s
+openshift_storage_glusterfs : Generate topology file ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- 1.82s
+openshift_storage_glusterfs : Label GlusterFS nodes -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- 1.62s
