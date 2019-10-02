@@ -1,0 +1,81 @@
+Need to update if cassandra pod failed with connection refuse error
+
+http://guifreelife.com/blog/2016/06/16/Deploy-Hawkular-Metrics-in-CDK-2.0-OpenShift-3.1
+
+https://github.com/openshift/origin-metrics/commit/cf2c6d0088426e285178a9e3057156e9a90dc56f#diff-c13869165b2db409fcc3d8d14f188a32
+
+cassandra/cassandra-docker-ready.sh
+
+# and other contributors as indicated by the @author tags.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Get the machines IP address from hosts
+# TODO: find a better way to retrieve the IP address (without
+# relying on the normal tools which are not installed in docker images by default)
+HOSTIP=`cat /etc/hosts | grep $HOSTNAME | awk '{print $1}' | head -n 1`
+# Get the status of this machine from the Cassandra nodetool
+STATUS=`nodetool status | grep $HOSTIP | awk '{print $1}'`
+
+if [ ${STATUS:-""} = "" ]; then
+  echo "Could not get the Cassandra status. This may mean that the Cassandra instance is not up yet. Will try again"
+  exit 1
+fi
+
+# Once the status is Up and Normal, then we are ready
+if [ $STATUS = "UN" ]; then
+if [ ${STATUS} = "UN" ]; then
+  echo "Cassandra is in the up and normal state. It is now ready"
+  exit 0
+else
+
+
+===========================================================================================================
+
+hawkular-metrics/hawkular-metrics-readiness.py
+
+
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+import os
+import json
+import urllib2
+hawkularEndpointPort = os.environ.get("HAWKULAR_METRICS_ENDPOINT_PORT")
+statusURL = "http://localhost:" + hawkularEndpointPort  + "/hawkular/metrics/status"
+try:
+  response = urllib2.urlopen(statusURL)
+  statusCode = response.getcode();
+  # if the status is 200, then continue
+  if (statusCode == 200):
+    responseHTML = response.read() 
+    jsonResponse = json.loads(responseHTML)
+    # if the metrics service is started then we are good
+    if (jsonResponse["MetricsService"] == "STARTED"):
+      exit(0)
+    else:
+      print "The MetricService is not yet in the STARTED state [" + jsonResponse["MetricsService"] + "]. We need to wait until its in the STARTED state."
+      exit(1)
+  else:
+    print "Could not connect to the Hawkular Metrics' status endpoint (" + statusCode + "). This may be due to Hawkular Metrics not being ready yet. Will try again"
+    exit(1)
+except Exception as e:
+  print "Failed to access the status endpoint : %s." % e
+  print "Failed to access the status endpoint : %s. This may be due to Hawkular Metrics not being ready yet. Will try again." % e
+  exit(1)
+
+# conditions were not passed, exit with an error code
+print "Could not verify a connection to the Hawkular Metrics' status endpoint"
+exit(1)
