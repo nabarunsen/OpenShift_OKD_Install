@@ -1,11 +1,12 @@
 
 1. Create those folders
 
-mkdir /exports/registry
-mkdir /exports/metrics
-mkdir /exports/logging
-mkdir /exports/logging-es-ops
-mkdir /exports/etcd
+mkdir -p /exports
+mkdir -p /exports/registry
+mkdir -p /exports/metrics
+mkdir -p /exports/logging
+mkdir -p /exports/logging-es-ops
+mkdir -p /exports/etcd
 
 
 Run below Command
