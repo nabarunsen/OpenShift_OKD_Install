@@ -2,6 +2,8 @@ Need to update if cassandra pod failed with connection refuse error
 
 http://guifreelife.com/blog/2016/06/16/Deploy-Hawkular-Metrics-in-CDK-2.0-OpenShift-3.1
 
+https://guifreelife.com/blog/2016/11/14/OpenShift-Cluster-Metrics-and-Cassandra-Troubleshooting
+
 https://github.com/openshift/origin-metrics/commit/cf2c6d0088426e285178a9e3057156e9a90dc56f#diff-c13869165b2db409fcc3d8d14f188a32
 
 cassandra/cassandra-docker-ready.sh
