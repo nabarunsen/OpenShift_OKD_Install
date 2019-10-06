@@ -1,0 +1,13 @@
+kind: PersistentVolumeClaim
+metadata: 
+  name: claim1
+  namespace: default
+  label: 
+    deploymentConfig: "docker-registry"
+spec:
+  accessModes: 
+   -
+    ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
