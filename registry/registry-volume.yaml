@@ -2,15 +2,18 @@ apiVersion: v1
 kind: PersistentVolume
 metadata:
   name: registry-volume
+  namspace: default
+  label: 
+    deploymentConfig: "docker-registry"
 spec:
   capacity:
-    storage: 5Gi
-  accessModes:
-  - ReadWriteMany
+    storage: 15Gi
+  accessModes: 
+  - ReadWriteOnce
   nfs:
     path: /exports/registry
-    server: infra.test-openshift.com
-  persistentVolumeReclaimPolicy: Recycle
+    server: nfs.test-openshift.com
+  PersistentVolumeClaimPolicy: Recycle
   claimRef:
-    name: registry-pvclaim
+    name: claim1
     namespace: default
